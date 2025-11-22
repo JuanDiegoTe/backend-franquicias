@@ -18,7 +18,7 @@ WORKDIR /app
 
 # Copiamos el jar generado en la etapa build
 # Ajusta el nombre si tu jar no es *SNAPSHOT.jar
-COPY --from=build /app/target/*SNAPSHOT.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 
