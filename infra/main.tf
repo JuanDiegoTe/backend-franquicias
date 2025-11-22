@@ -13,7 +13,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-2" # Cambia si usas otra región
+  region = "us-east-2" # <-- CAMBIA si usas otra región
 }
 
 ############################################
@@ -23,7 +23,6 @@ resource "aws_security_group" "franquicia_sg" {
   name        = "franquicia-sg"
   description = "Permite HTTP (8080) y SSH"
 
-  # SSH solo desde tu IP
   ingress {
     from_port   = 22
     to_port     = 22
@@ -31,15 +30,15 @@ resource "aws_security_group" "franquicia_sg" {
     cidr_blocks = ["186.29.114.232/32"]
   }
 
-  # API franquicias (puerto 8080) abierta
+  # API franquicias (puerto 8080)
   ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"]       # acceso público a tu API
   }
 
-  # Salida libre a internet
+  # Salida libre a internet (para apt-get, git, etc.)
   egress {
     from_port   = 0
     to_port     = 0
@@ -50,57 +49,39 @@ resource "aws_security_group" "franquicia_sg" {
 
 ############################################
 # Script de arranque (user_data)           #
-# - Instala Docker + git                   #
+# - Instala Docker + docker-compose        #
 # - Clona tu repo y levanta la app         #
-############################################
-############################################
-# Script de arranque (user_data)           #
-# - Instala Docker + docker-compose-v2     #
-# - Agrega ubuntu al grupo docker          #
-# - Clona el repo y levanta la app         #
 ############################################
 locals {
   user_data = <<-EOF
     #!/bin/bash
-    exec > /var/log/user-data.log 2>&1
-    echo "=== INICIO USER-DATA ==="
+    set -e
 
-    export DEBIAN_FRONTEND=noninteractive
-
-    echo "[1] apt-get update"
+    # Actualizar paquetes
     apt-get update -y
 
-    echo "[2] instalar docker.io, docker-compose-v2 y git"
-    apt-get install -y docker.io docker-compose-v2 git
+    # Instalar Docker y Git
+    apt-get install -y docker.io git
 
-    echo "[3] habilitar y arrancar docker"
+    # Habilitar y arrancar Docker
     systemctl enable docker
     systemctl start docker
-    sleep 5
 
-    echo "[4] agregar usuario ubuntu al grupo docker"
-    usermod -aG docker ubuntu
+    # Instalar plugin docker-compose (Docker CLI v2)
+    mkdir -p ~/.docker/cli-plugins/
+    curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+    chmod +x ~/.docker/cli-plugins/docker-compose
 
-    echo "[5] crear carpeta /opt/franquicias"
+    # Crear carpeta para la app
     mkdir -p /opt/franquicias
     cd /opt
 
-    echo "[6] clonar repo (si no existe)"
-    if [ ! -d "/opt/franquicias/.git" ]; then
-      git clone https://github.com/JuanDiegoTe/backend-franquicias.git franquicias
-    fi
+    # Clonar tu repositorio
+    git clone https://github.com/TU_USUARIO/TU_REPO_Franquicias.git franquicias  # <-- CAMBIA ESTO
+    cd franquicias
 
-    cd /opt/franquicias
-
-    echo "[7] build + up de docker compose"
-    docker compose build || { echo "docker compose build falló. Revisar /var/log/user-data.log"; exit 1; }
-    docker compose up -d || { echo "docker compose up falló. Revisar /var/log/user-data.log"; exit 1; }
-
-    echo "[8] dejar /opt/franquicias propiedad de ubuntu"
-    chown -R ubuntu:ubuntu /opt/franquicias || true
-
-    usermod -aG docker ubuntu
-    echo "=== FIN USER-DATA ==="
+    # Levantar la app con docker compose
+    docker compose up -d
   EOF
 }
 
@@ -108,14 +89,13 @@ locals {
 # Instancia EC2                            #
 ############################################
 resource "aws_instance" "franquicia_ec2" {
-  # ⚠️ Sustituye por el AMI ID que copiaste de la consola
-  ami           = "ami-0f5fcdfbd140e4ab7"
-  instance_type = "t3.micro" # free tier compatible
+  ami           = "ami-0f5fcdfbd140e4ab7"  # <-- CAMBIA por una AMI de Ubuntu en tu región
+  instance_type = "t3.micro"            # dentro del free tier si usas t2.micro/t3.micro
 
   vpc_security_group_ids = [aws_security_group.franquicia_sg.id]
 
   # key pair para poder conectarte por SSH (debe existir ya en AWS)
-  key_name = "franquicia-key" # cámbialo por el nombre real de tu key pair
+  key_name = "franquicia-key"     # <-- CAMBIA (ej: juandiego-key)
 
   user_data = local.user_data
 
@@ -125,7 +105,7 @@ resource "aws_instance" "franquicia_ec2" {
 }
 
 ############################################
-# Outputs útiles                           #
+# Outputs útiles                            #
 ############################################
 output "ec2_public_ip" {
   description = "IP pública de la instancia EC2 donde corre la app"
