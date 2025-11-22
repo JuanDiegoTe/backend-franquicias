@@ -77,7 +77,7 @@ locals {
     cd /opt
 
     # Clonar tu repositorio
-    git clone https://github.com/TU_USUARIO/TU_REPO_Franquicias.git franquicias  # <-- CAMBIA ESTO
+    git clone https://github.com/JuanDiegoTe/backend-franquicias.git franquicias  # <-- CAMBIA ESTO
     cd franquicias
 
     # Levantar la app con docker compose
