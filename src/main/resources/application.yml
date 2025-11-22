@@ -1,0 +1,9 @@
+spring:
+  main:
+    web-application-type: reactive
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/franquicia_db
+
+server:
+  port: 8080
